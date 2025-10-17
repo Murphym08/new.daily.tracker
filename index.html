@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日消费记录</title>
+<link rel="icon" href="image.png" type="image/png">
+<link rel="apple-touch-icon" href="image.png">
+<link rel="apple-touch-icon" sizes="180x180" href="image.png">
+<link rel="icon" sizes="192x192" href="image.png"> 
+
+<style>
+    body {
+        font-family: "Microsoft YaHei", sans-serif;
+        background-color: #f8fbff;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+    }
+    h1 {
+        text-align: center;
+        color: #1f6feb;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    th, td {
+        border: 1px solid #d0e3ff;
+        padding: 8px;
+        text-align: left;
+    }
+    th {
+        background-color: #e8f1ff;
+    }
+    tr:nth-child(even) {
+        background-color: #f4f9ff;
+    }
+    input[type='text'], input[type='number'] {
+        width: 90%;
+        padding: 4px;
+        border: 1px solid #bcd3f9;
+        border-radius: 4px;
+    }
+    button {
+        background-color: #1f6feb;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 6px 12px;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #155acb;
+    }
+    .controls {
+        text-align: center;
+        margin-top: 20px;
+    }
+</style>
+</head>
+<body>
+<h1>每日消费记录 💰</h1>
+<table id="expenseTable">
+    <thead>
+        <tr>
+            <th>选择</th>
+            <th>日期</th>
+            <th>项目与金额</th>
+            <th>每日合计</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div class="controls">
+    <button onclick="addDay()">➕ 新增一天</button>
+    <button onclick="calculateSelected()">计算选中总和</button>
+    <button onclick="clearAll()">清空全部</button>
+</div>
+
+<h3 id="totalDisplay" style="text-align:center; color:#1f6feb; margin-top:15px;"></h3>
+
+<script>
+let expenseData = JSON.parse(localStorage.getItem('expenseData')) || [];
+
+function saveData() {
+    localStorage.setItem('expenseData', JSON.stringify(expenseData));
+}
+
+function loadData() {
+    const tbody = document.querySelector("#expenseTable tbody");
+    tbody.innerHTML = "";
+    expenseData.forEach((day, dayIndex) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><input type='checkbox' data-day='${dayIndex}'></td>
+            <td><input type='text' value='${day.date}' onchange='updateDate(${dayIndex}, this.value)'></td>
+            <td id='items-${dayIndex}'></td>
+            <td id='total-${dayIndex}'>${day.total}</td>
+            <td><button onclick='addItem(${dayIndex})'>添加项</button>
+                <button onclick='deleteDay(${dayIndex})'>删除</button></td>
+        `;
+        tbody.appendChild(tr);
+        const itemsDiv = document.getElementById(`items-${dayIndex}`);
+        day.items.forEach((item, itemIndex) => {
+            const div = document.createElement("div");
+            div.innerHTML = `
+                <input type='text' placeholder='项目' value='${item.name}' onchange='updateItem(${dayIndex},${itemIndex},"name",this.value)'>
+                <input type='number' placeholder='金额' value='${item.amount}' onchange='updateItem(${dayIndex},${itemIndex},"amount",this.value)'>
+                <button onclick='deleteItem(${dayIndex},${itemIndex})'>×</button>
+            `;
+            itemsDiv.appendChild(div);
+        });
+    });
+}
+
+function addDay() {
+    expenseData.push({date: new Date().toISOString().split('T')[0], items: [], total: 0});
+    saveData();
+    loadData();
+}
+
+function deleteDay(index) {
+    expenseData.splice(index, 1);
+    saveData();
+    loadData();
+}
+
+function addItem(dayIndex) {
+    expenseData[dayIndex].items.push({name: "", amount: 0});
+    saveData();
+    loadData();
+}
+
+function deleteItem(dayIndex, itemIndex) {
+    expenseData[dayIndex].items.splice(itemIndex, 1);
+    recalcTotal(dayIndex);
+    saveData();
+    loadData();
+}
+
+function updateDate(dayIndex, value) {
+    expenseData[dayIndex].date = value;
+    saveData();
+}
+
+function updateItem(dayIndex, itemIndex, field, value) {
+    expenseData[dayIndex].items[itemIndex][field] = field === "amount" ? parseFloat(value) || 0 : value;
+    recalcTotal(dayIndex);
+    saveData();
+}
+
+function recalcTotal(dayIndex) {
+    const total = expenseData[dayIndex].items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    expenseData[dayIndex].total = total.toFixed(2);
+    document.getElementById(`total-${dayIndex}`).innerText = expenseData[dayIndex].total;
+}
+
+function calculateSelected() {
+    const boxes = document.querySelectorAll("input[type='checkbox']:checked");
+    let sum = 0;
+    boxes.forEach(box => {
+        const dayIndex = parseInt(box.getAttribute("data-day"));
+        sum += parseFloat(expenseData[dayIndex].total) || 0;
+    });
+    document.getElementById("totalDisplay").innerText = "选中总和：" + sum.toFixed(2) + " 元";
+}
+
+function clearAll() {
+    if (confirm("确定要清空所有记录吗？")) {
+        expenseData = [];
+        saveData();
+        loadData();
+    }
+}
+
+window.onload = loadData;
+</script>
+</body>
+</html>
